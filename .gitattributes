@@ -1,1 +1,2 @@
 model-training/model.joblib filter=lfs diff=lfs merge=lfs -text
+model-training/phishing_site_urls.csv filter=lfs diff=lfs merge=lfs -text
