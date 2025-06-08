@@ -1,20 +1,54 @@
-# model-server.py
-import tldextract
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from joblib import load
+import tldextract
 import urllib.parse
 import re
 import numpy as np
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
-# Load your trained model
-model = load('model-training/model.joblib')
+# Configuration
+TRUSTED_DOMAINS = {
+    'google.com', 'github.com', 'microsoft.com',
+}
 
-# Copy your feature extraction function from train_model.py
+CLOUD_SERVICES = {
+    'amazonaws.com', 'cloudfront.net', 
+    'azurewebsites.net', 'googleusercontent.com'
+}
+
+ALL_SAFE_DOMAINS = TRUSTED_DOMAINS.union(CLOUD_SERVICES)
+
+MODEL_PATH = "model-training/model.joblib"
+
+# Define the feature names in the exact order the model expects
+FEATURE_NAMES = [
+    'url_length', 'num_dots', 'num_hyphens', 'num_underscore', 'num_slash',
+    'num_question', 'num_equal', 'num_at', 'num_and', 'num_exclamation',
+    'num_space', 'num_tilde', 'num_comma', 'num_plus', 'num_asterisk',
+    'num_hash', 'num_dollar', 'num_percent', 'domain_length', 'subdomain_length',
+    'subdomain_count', 'is_ip', 'path_length', 'query_length', 'has_https',
+    'has_http', 'has_port', 'has_redirect', 'short_url', 'long_url',
+    'sensitive_words', 'is_encoded', 'random_string'
+]
+
+# Load model with proper error handling
+try:
+    loaded_data = load(MODEL_PATH)
+    if isinstance(loaded_data, tuple) and len(loaded_data) == 2:
+        model, model_feature_names = loaded_data
+        print(f"Model loaded with {len(model_feature_names)} features")
+    else:
+        model = loaded_data
+        print("Model loaded (legacy format), using default feature names")
+except Exception as e:
+    print(f"Error loading model: {str(e)}")
+    raise
+
 def extract_features(url):
+    """Extract features from URL - only the features the model expects"""
     try:
         parsed = urllib.parse.urlparse(url)
         domain_info = tldextract.extract(url)
@@ -54,79 +88,52 @@ def extract_features(url):
             "is_encoded": int('%' in url),
             "random_string": int(bool(re.search(r'[0-9a-f]{8}', url))),
         }
-        return features
-    except:
-        return {
-            "url_length": len(url),
-            "num_dots": url.count('.'),
-            "num_hyphens": 0,
-            "num_underscore": 0,
-            "num_slash": 0,
-            "num_question": 0,
-            "num_equal": 0,
-            "num_at": 0,
-            "num_and": 0,
-            "num_exclamation": 0,
-            "num_space": 0,
-            "num_tilde": 0,
-            "num_comma": 0,
-            "num_plus": 0,
-            "num_asterisk": 0,
-            "num_hash": 0,
-            "num_dollar": 0,
-            "num_percent": 0,
-            "domain_length": 0,
-            "subdomain_length": 0,
-            "subdomain_count": 0,
-            "is_ip": 0,
-            "path_length": 0,
-            "query_length": 0,
-            "has_https": 0,
-            "has_http": 0,
-            "has_port": 0,
-            "has_redirect": 0,
-            "short_url": 0,
-            "long_url": 0,
-            "sensitive_words": 0,
-            "is_encoded": 0,
-            "random_string": 0
-        }
+        
+        # Return features in the correct order
+        return [features[name] for name in FEATURE_NAMES]
+    except Exception as e:
+        print(f"Feature extraction error: {str(e)}")
+        return None
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    """Handle prediction requests"""
     try:
-        data = request.json
-        url = data['url']
+        # Validate input
+        if not request.json or 'url' not in request.json:
+            return jsonify({"error": "Missing URL in request"}), 400
+        
+        url = request.json['url'].strip()
+        if not url.startswith(('http://', 'https://')):
+            return jsonify({"error": "URL must start with http:// or https://"}), 400
+        
+        # Check trusted domains
+        domain = tldextract.extract(url).domain + '.' + tldextract.extract(url).suffix
+        if domain in ALL_SAFE_DOMAINS:
+            return jsonify({
+                'isPhishing': False,
+                'confidence': 0.01 if domain in TRUSTED_DOMAINS else 0.1,
+                'message': 'Trusted domain' if domain in TRUSTED_DOMAINS else 'Cloud service'
+            })
         
         # Extract features
         features = extract_features(url)
-        if "error" in features:
-            return jsonify({"error": features["error"]}), 400
-            
-        # Convert features to array in correct order
-        feature_names = [
-    'url_length', 'num_dots', 'num_hyphens', 'num_underscore', 'num_slash',
-    'num_question', 'num_equal', 'num_at', 'num_and', 'num_exclamation',
-    'num_space', 'num_tilde', 'num_comma', 'num_plus', 'num_asterisk',
-    'num_hash', 'num_dollar', 'num_percent', 'domain_length', 'subdomain_length',
-    'subdomain_count', 'is_ip', 'path_length', 'query_length', 'has_https',
-    'has_http', 'has_port', 'has_redirect', 'short_url', 'long_url',
-    'sensitive_words', 'is_encoded', 'random_string'
-]
-        feature_values = [features[name] for name in feature_names]
+        if features is None:
+            return jsonify({"error": "Feature extraction failed"}), 400
         
-        # Make prediction
-        prediction = model.predict([feature_values])
-        proba = model.predict_proba([feature_values])
+        # Predict
+        prediction = model.predict([features])[0]
+        proba = model.predict_proba([features])[0][1]
         
         return jsonify({
-            'isPhishing': bool(prediction[0]),
-            'confidence': float(np.max(proba)),
-            'features': features  # For debugging
+            'isPhishing': bool(prediction),
+            'confidence': float(proba),
+            'domain': domain
         })
         
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Prediction error: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
