@@ -1,0 +1,11 @@
+URL,Label
+https://github.com/search?q=python,good
+https://docs.google.com/document/d/123,good
+https://stackoverflow.com/questions/123,good
+https://g00gle.com-login.security-check.com,bad
+https://facebook.verify-account.com,bad
+https://company-login.s3.amazonaws.com,good
+https://bucket-name.azurewebsites.net,good
+https://user-content.googleusercontent.com,good
+https://8fd3eab1.example.io,good  # UUID pattern
+https://verify.account.user-subdomain.com,good
