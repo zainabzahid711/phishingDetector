@@ -5,6 +5,7 @@ from flask_limiter.util import get_remote_address
 from joblib import load
 import tldextract
 import urllib.parse
+from urllib.parse import urlparse
 import re
 import numpy as np
 from datetime import datetime
@@ -12,8 +13,9 @@ import validators
 from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 CORS(app, resources={
-    r"/predict": {"origins":["chrome-extension://*", "http://localhost:*"]}
+    r"/predict": {"origins":["chrome-extension://*", "http://localhost:*", "http://localhost:3000"]}
 })
 
 # Rate Limiting
@@ -253,6 +255,12 @@ def predict():
         if not url.startswith(('http://', 'https://')):
             return jsonify({"error": "URL must start with http:// or https://"}), 400
         
+        parsed = urlparse(url)
+        if not parsed.netloc:  # Check if domain exists
+            raise ValueError("Invalid URL format")
+
+    
+
         # Check trusted domains
         domain = tldextract.extract(url).domain + '.' + tldextract.extract(url).suffix
         if domain in ALL_SAFE_DOMAINS:
