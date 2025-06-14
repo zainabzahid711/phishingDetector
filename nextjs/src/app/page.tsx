@@ -1,11 +1,11 @@
 // app/page.tsx
 "use client";
 import { Container, Grid, Typography, Box } from "@mui/material";
-import LiveDemoSection from "@/components/liveDemoSection";
-import TrustBadges from "@/components/trustedBadges";
-import CompanyLogos from "@/components/companyLogos";
-import FeatureGrid from "@/components/featureGrid";
-import ChromeButton from "@/components/chromeButton";
+import LiveDemoSection from "../components/liveDemoSection";
+import TrustBadges from "../components/trustedBadges";
+import CompanyLogos from "../components/companyLogos";
+import FeatureGrid from "../components/featureGrid";
+import ChromeButton from "../components/chromeButton";
 
 export default function Home() {
   return (
