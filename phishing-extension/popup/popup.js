@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const resultDiv = document.getElementById("result");
-  resultDiv.innerHTML = '<p class="loading">Analyzing URL...</p>';
+  const reportBtn = document.getElementById("report-btn");
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const url = tabs[0]?.url;
@@ -19,18 +19,27 @@ document.addEventListener("DOMContentLoaded", () => {
         return response.json();
       })
       .then((data) => {
+        const confidenceLevel = document.querySelector(".confidence-level");
+        confidenceLevel.style.width = `${Math.round(data.confidence * 100)}%`;
+        confidenceLevel.style.background = data.isPhishing
+          ? "#ea4335"
+          : "#34a853";
+
         resultDiv.innerHTML = `
-        <h2>${data.isPhishing ? "⚠️ PHISHING" : "✅ SAFE"}</h2>
-        <p>${Math.round(data.confidence * 100)}% confidence</p>
-        <small>${new URL(url).hostname}</small>
-      `;
+          <h2>${data.isPhishing ? "⚠️ PHISHING" : "✅ SAFE"}</h2>
+          <p>${Math.round(data.confidence * 100)}% confidence</p>
+          <small>${new URL(url).hostname}</small>
+        `;
       })
       .catch((error) => {
-        console.error("Fetch error:", error);
         resultDiv.innerHTML = `
-        <p class="error">⚠️ Analysis Failed</p>
-        <small>${error.message}</small>
-      `;
+          <p class="error">⚠️ Analysis Failed</p>
+          <small>${error.message}</small>
+        `;
       });
+  });
+
+  reportBtn.addEventListener("click", () => {
+    chrome.tabs.create({ url: "https://example.com/report" });
   });
 });
