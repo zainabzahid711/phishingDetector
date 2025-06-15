@@ -19,7 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const domain = params.get("domain") || "unknown";
 
   // Update UI
-  document.getElementById("domain").textContent = decodeURIComponent(domain);
+  document.getElementById("domain").textContent =
+    new URL(decodeURIComponent(originalUrl)).hostname || "unknown";
   document.getElementById("confidence").textContent =
     confidence === "unknown"
       ? "unknown"
@@ -27,40 +28,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Button handlers
   document.getElementById("continue").addEventListener("click", () => {
-    console.log("[DEBUG] Proceed button clicked - start");
-
-    // Double-decode the URL in case it's encoded twice
-    const decodedUrl = decodeURIComponent(decodeURIComponent(originalUrl));
-    console.log("[DEBUG] Decoded URL:", decodedUrl);
-
-    // Add validation
-    if (!decodedUrl.startsWith("http")) {
-      console.error("Invalid URL format:", decodedUrl);
-      return;
-    }
+    const url = decodeURIComponent(originalUrl);
+    console.log("[BLOCKED] Attempting to proceed to:", url);
 
     chrome.runtime.sendMessage(
       {
         action: "proceed",
-        url: decodedUrl,
+        url: url,
       },
       (response) => {
-        // Add more detailed error handling
-        if (chrome.runtime.lastError) {
-          console.error("Runtime error:", chrome.runtime.lastError.message);
-        }
-
         if (!response?.success) {
-          console.error("[FALLBACK] Using direct navigation");
-          window.location.href = decodedUrl;
-        } else {
-          console.log("[DEBUG] Proceed successful via extension");
+          console.warn("[BLOCKED] Falling back to direct navigation");
+          window.location.href = url;
         }
       }
     );
-
-    // Add immediate feedback
-    document.getElementById("continue").textContent = "Processing...";
   });
 
   document.getElementById("back").addEventListener("click", () => {

@@ -38,6 +38,7 @@ def add_security_headers(response):
 # Configuration
 TRUSTED_DOMAINS = {
      'amazon.com', 'facebook.com', 'microsoft.com',
+      'googleadservices.com',
     'google.com', 'apple.com', 'aws.amazon.com'
     , 'github.com', 'youtube.com', 'linkedin.com',
     'twitter.com', 'instagram.com', 'reddit.com',

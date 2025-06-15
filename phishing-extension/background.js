@@ -2,6 +2,12 @@
 const TEST_MODE = false; // Set to false in production
 const API_ENDPOINT = "http://localhost:5000/predict";
 const CONFIDENCE_THRESHOLD = 0.7;
+const WHITELIST = [
+  /\.pdf(\?|$)/i, // All PDF files
+  /google(\.com|adservices\.com)/i,
+  /microsoft\.com/i,
+  // Add other trusted domains here
+];
 
 // Mock response for testing
 const getMockResponse = (url) => ({
@@ -13,6 +19,11 @@ const getMockResponse = (url) => ({
 // Main detection logic
 chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   console.log("Navigation detected:", details.url);
+
+  if (WHITELIST.some((pattern) => pattern.test(details.url))) {
+    console.log("[DEBUG] Whitelisted URL skipped:", details.url);
+    return;
+  }
 
   if (!details.url.startsWith("http")) {
     console.log("Non-HTTP URL skipped");
@@ -45,7 +56,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
       chrome.tabs.update(details.tabId, { url: blockedUrl.href });
     }
   } catch (error) {
-    console.error("Phish detection failed:", error);
+    console.error("detection failed:", error);
     // Optionally log to analytics or show subtle warning
   }
 });
@@ -63,24 +74,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Add URL validation
     try {
-      new URL(request.url); // This will throw if URL is invalid
-    } catch (e) {
-      console.error("Invalid URL:", request.url);
-      sendResponse({ success: false });
-      return true;
-    }
+      // Fix URL decoding (only decode once)
+      const urlToLoad = request.url.startsWith("http")
+        ? request.url
+        : decodeURIComponent(request.url);
 
-    chrome.tabs.update(sender.tab.id, { url: request.url }, () => {
-      if (chrome.runtime.lastError) {
-        console.error("Tab update error:", chrome.runtime.lastError.message);
-        sendResponse({ success: false });
-      } else {
-        console.log("[BACKGROUND] Tab update successful");
+      console.log("[BACKGROUND] Processed URL:", urlToLoad);
+
+      chrome.tabs.update(sender.tab.id, { url: urlToLoad }, () => {
+        if (chrome.runtime.lastError) {
+          console.error("Tab update error:", chrome.runtime.lastError);
+          // Emergency fallback
+          chrome.tabs.executeScript(sender.tab.id, {
+            code: `window.location.href = "${urlToLoad.replace(/"/g, '\\"')}";`,
+          });
+        }
         sendResponse({ success: true });
-      }
-    });
-
-    return true; // Required for async response
+      });
+    } catch (e) {
+      console.error("[BACKGROUND] Critical error:", e);
+      sendResponse({ success: false, error: e.message });
+    }
+    return true; // Keep message channel open
   } else if (request.action === "goBack") {
     chrome.tabs.goBack(sender.tab.id, () => {
       if (chrome.runtime.lastError) {
