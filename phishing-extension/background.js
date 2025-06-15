@@ -1,5 +1,5 @@
 // Configuration
-const TEST_MODE = true; // Set to false in production
+const TEST_MODE = false; // Set to false in production
 const API_ENDPOINT = "http://localhost:5000/predict";
 const CONFIDENCE_THRESHOLD = 0.7;
 
