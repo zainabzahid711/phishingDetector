@@ -1,23 +1,23 @@
 {
-  "manifest_version": 3,
-  "web_accessible_resources": [{
-    "resources": ["icons/*"],
-    "matches": ["<all_urls>"]
-  }],
   "name": "PhishGuard",
-  "version": "1.0",
-  "permissions": [
-    "activeTab",      
-    "storage",       
-    "webNavigation"  
-  ],
-  "host_permissions": [
-    "http://localhost:5000/*", 
-    "*://*/*"                  
-  ],
+  "version": "2.0",
+  "manifest_version": 3,
   "background": {
     "service_worker": "background.js"
   },
+  "permissions": [
+    "webNavigation",
+    "tabs",
+    "webRequest",
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://localhost:5000/*",
+    "http://*/*",
+    "https://*/*"
+  ],
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
@@ -25,5 +25,13 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "web_accessible_resources": [{
+    "resources": ["blocked.html", "blocked.js"],
+    "matches": ["<all_urls>"],
+    "use_dynamic_url": true
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
   }
 }
